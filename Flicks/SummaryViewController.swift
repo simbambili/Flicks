@@ -14,19 +14,38 @@ class SummaryViewController: UIViewController, UITableViewDelegate, UITableViewD
     let API_URL = "https://api.themoviedb.org/3/movie/now_playing"
     let IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w342"
     let CLIENT_ID = "a07e22bc18f5cb106bfe4cc1f83ad8ed"
+    var isMoreDataLoading = false
     var movieDataResults = [NSDictionary()]
+    var loadingView:LoadingIndicatorView?
+    
     @IBOutlet weak var summaryTableView: UITableView!
 
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
+        
+        
         self.summaryTableView.delegate = self
         self.summaryTableView.dataSource = self
         //self.summaryTableView.rowHeight = 140
         let contentWidth = summaryTableView.bounds.width
         let contentHeight = summaryTableView.bounds.height * 3
         summaryTableView.contentSize = CGSizeMake(contentWidth, contentHeight)
+
+        let frame = CGRectMake(0, summaryTableView.contentSize.height, summaryTableView.bounds.size.width, LoadingIndicatorView.defaultHeight)
+        loadingView = LoadingIndicatorView(frame: frame)
+        loadingView!.hidden = true
+        self.summaryTableView.addSubview(loadingView!)
+        var insets = self.summaryTableView.contentInset;
+        insets.bottom += LoadingIndicatorView.defaultHeight
+        self.summaryTableView.contentInset = insets
+
         self.setMovieDataResponse()
+        // Initialize a UIRefreshControl
+        let refreshControl = UIRefreshControl()
+        //refreshControl.addTarget(self, action: #selector(refreshControlAction(_:)), forControlEvents: UIControlEvents.ValueChanged)
+        summaryTableView.insertSubview(refreshControl, atIndex: 0)
+        
     }
 
     override func didReceiveMemoryWarning() {
@@ -51,7 +70,7 @@ class SummaryViewController: UIViewController, UITableViewDelegate, UITableViewD
         if let moviePopularityPercent = movieDictionary["popularity"] as? Double {
             //NSLog("popularity: \(moviePopularityPercent)")
             movieDetailsViewController.popularity = moviePopularityPercent
-        } 
+        }
         if let movieReleaseDate = movieDictionary["release_date"] as? String {
             movieDetailsViewController.releaseDate = movieReleaseDate
         }
@@ -61,6 +80,11 @@ class SummaryViewController: UIViewController, UITableViewDelegate, UITableViewD
     
     func setMovieDataResponse() {
 
+        NSLog("setMovieDataResponse method called")
+        // Update position of loadingMoreView, and start loading indicator
+        let frame = CGRectMake(0, summaryTableView.contentSize.height, summaryTableView.bounds.size.width, LoadingIndicatorView.defaultHeight)
+        loadingView?.frame = frame
+        loadingView!.startAnimating()
         let url = NSURL(string:"\(API_URL)?api_key=\(CLIENT_ID)")
         let request = NSURLRequest(URL: url!)
         let session = NSURLSession(
@@ -68,6 +92,9 @@ class SummaryViewController: UIViewController, UITableViewDelegate, UITableViewD
             delegate:nil,
             delegateQueue:NSOperationQueue.mainQueue()
         )
+        
+        NSLog("sleeping for 5 seconds")
+        sleep(5)
         
         let task : NSURLSessionDataTask = session.dataTaskWithRequest(request,
             completionHandler: { (dataOrNil, response, error) in
@@ -78,6 +105,7 @@ class SummaryViewController: UIViewController, UITableViewDelegate, UITableViewD
                             if let myResponse = responseDictionary["results"] as? [NSDictionary] {
                                 //NSLog("response\n\n \(myResponse)")
                                 self.movieDataResults = myResponse
+                                self.loadingView!.stopAnimating()
                                 self.summaryTableView.reloadData()
                             }
                     }
@@ -112,6 +140,39 @@ class SummaryViewController: UIViewController, UITableViewDelegate, UITableViewD
     
     func tableView(tableView: UITableView, didDeselectRowAtIndexPath indexPath: NSIndexPath) {
         self.summaryTableView.deselectRowAtIndexPath(indexPath, animated: true)
+    }
+    
+    // Makes a network request to get updated data
+    // Updates the tableView with the new data
+    // Hides the RefreshControl
+    func refreshControlAction(refreshControl: UIRefreshControl) {
+        
+        NSLog("setMovieDataResponse method called")
+        let url = NSURL(string:"\(API_URL)?api_key=\(CLIENT_ID)")
+        let request = NSURLRequest(URL: url!)
+        let session = NSURLSession(
+            configuration: NSURLSessionConfiguration.defaultSessionConfiguration(),
+            delegate:nil,
+            delegateQueue:NSOperationQueue.mainQueue()
+        )
+        
+        let task : NSURLSessionDataTask = session.dataTaskWithRequest(request,
+            completionHandler: { (dataOrNil, response, error) in
+                if let data = dataOrNil {
+                    if let responseDictionary = try! NSJSONSerialization.JSONObjectWithData(
+                        data, options:[]) as? NSDictionary {
+                            //NSLog("response: \(responseDictionary)")
+                            if let myResponse = responseDictionary["results"] as? [NSDictionary] {
+                                //NSLog("response\n\n \(myResponse)")
+                                self.movieDataResults = myResponse
+                                self.summaryTableView.reloadData()
+                                refreshControl.endRefreshing()
+                            }
+                    }
+                    
+                }
+        });
+        task.resume()
     }
 
 }

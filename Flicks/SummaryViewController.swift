@@ -39,7 +39,9 @@ class SummaryViewController: UIViewController, UITableViewDelegate, UITableViewD
         var insets = self.summaryTableView.contentInset;
         insets.bottom += LoadingIndicatorView.defaultHeight
         self.summaryTableView.contentInset = insets
-
+        loadingView?.frame = frame
+        loadingView!.startAnimating()
+        
         self.setMovieDataResponse()
         // Initialize a UIRefreshControl
         let refreshControl = UIRefreshControl()
@@ -80,11 +82,9 @@ class SummaryViewController: UIViewController, UITableViewDelegate, UITableViewD
     
     func setMovieDataResponse() {
 
-        NSLog("setMovieDataResponse method called")
+        //NSLog("setMovieDataResponse method called")
         // Update position of loadingMoreView, and start loading indicator
-        let frame = CGRectMake(0, summaryTableView.contentSize.height, summaryTableView.bounds.size.width, LoadingIndicatorView.defaultHeight)
-        loadingView?.frame = frame
-        loadingView!.startAnimating()
+
         let url = NSURL(string:"\(API_URL)?api_key=\(CLIENT_ID)")
         let request = NSURLRequest(URL: url!)
         let session = NSURLSession(
@@ -92,9 +92,6 @@ class SummaryViewController: UIViewController, UITableViewDelegate, UITableViewD
             delegate:nil,
             delegateQueue:NSOperationQueue.mainQueue()
         )
-        
-        NSLog("sleeping for 5 seconds")
-        sleep(5)
         
         let task : NSURLSessionDataTask = session.dataTaskWithRequest(request,
             completionHandler: { (dataOrNil, response, error) in
@@ -126,7 +123,7 @@ class SummaryViewController: UIViewController, UITableViewDelegate, UITableViewD
             cell.movieSummaryLabel.sizeToFit()
         }
         if let moviePosterURLSuffix = movieDictionary["poster_path"] as? String {
-            let moviePosterURL = "\(IMAGE_BASE_URL)\(moviePosterURLSuffix)"
+            let moviePosterURL = IMAGE_BASE_URL + moviePosterURLSuffix
             //NSLog("movie poster URL: \(moviePosterURL)")
             cell.movieImageView.setImageWithURL(NSURL(string: moviePosterURL)!)
         }

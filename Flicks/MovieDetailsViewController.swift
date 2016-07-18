@@ -10,6 +10,8 @@ import UIKit
 
 class MovieDetailsViewController: UIViewController {
 
+    @IBOutlet weak var movieScrollView: UIScrollView!
+    @IBOutlet weak var movieInfoView: UIView!
     @IBOutlet weak var moviePosterBackdropImage: UIImageView!
     @IBOutlet weak var movieTitleLabel: UILabel!
     @IBOutlet weak var moviePopularity: UILabel!
@@ -25,11 +27,12 @@ class MovieDetailsViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        movieScrollView.contentSize = CGSize(width: movieScrollView.frame.size.width, height: movieInfoView.frame.origin.y + movieInfoView.frame.size.height)
         // Do any additional setup after loading the view.
         moviePosterBackdropImage.setImageWithURL(NSURL(string: moviePosterURL)!)
         movieTitleLabel.text = movieTitle
         let popularityNumber = String(format: "%.2f", popularity)
-        moviePopularity.text = "\(popularityNumber)%"
+        moviePopularity.text = popularityNumber + "%"
         movieReleaseDate.text = releaseDate
         movieOverview.text = overview
         //movieOverview.sizeToFit()

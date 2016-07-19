@@ -8,6 +8,7 @@
 
 import UIKit
 import AFNetworking
+import MBProgressHUD
 
 class SummaryViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
 
@@ -16,36 +17,26 @@ class SummaryViewController: UIViewController, UITableViewDelegate, UITableViewD
     let CLIENT_ID = "a07e22bc18f5cb106bfe4cc1f83ad8ed"
     var isMoreDataLoading = false
     var movieDataResults = [NSDictionary()]
-    var loadingView:LoadingIndicatorView?
     
+    @IBOutlet weak var networkErrorView: UIView!
     @IBOutlet weak var summaryTableView: UITableView!
 
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
         
-        
+        self.networkErrorView.hidden = true
         self.summaryTableView.delegate = self
         self.summaryTableView.dataSource = self
         //self.summaryTableView.rowHeight = 140
         let contentWidth = summaryTableView.bounds.width
         let contentHeight = summaryTableView.bounds.height * 3
         summaryTableView.contentSize = CGSizeMake(contentWidth, contentHeight)
-
-        let frame = CGRectMake(0, summaryTableView.contentSize.height, summaryTableView.bounds.size.width, LoadingIndicatorView.defaultHeight)
-        loadingView = LoadingIndicatorView(frame: frame)
-        loadingView!.hidden = true
-        self.summaryTableView.addSubview(loadingView!)
-        var insets = self.summaryTableView.contentInset;
-        insets.bottom += LoadingIndicatorView.defaultHeight
-        self.summaryTableView.contentInset = insets
-        loadingView?.frame = frame
-        loadingView!.startAnimating()
-        
         self.setMovieDataResponse()
+        
         // Initialize a UIRefreshControl
         let refreshControl = UIRefreshControl()
-        //refreshControl.addTarget(self, action: #selector(refreshControlAction(_:)), forControlEvents: UIControlEvents.ValueChanged)
+        refreshControl.addTarget(self, action: #selector(refreshControlAction(_:)), forControlEvents: UIControlEvents.ValueChanged)
         summaryTableView.insertSubview(refreshControl, atIndex: 0)
         
     }
@@ -83,33 +74,44 @@ class SummaryViewController: UIViewController, UITableViewDelegate, UITableViewD
     func setMovieDataResponse() {
 
         //NSLog("setMovieDataResponse method called")
-        // Update position of loadingMoreView, and start loading indicator
-
-        let url = NSURL(string:"\(API_URL)?api_key=\(CLIENT_ID)")
-        let request = NSURLRequest(URL: url!)
-        let session = NSURLSession(
-            configuration: NSURLSessionConfiguration.defaultSessionConfiguration(),
-            delegate:nil,
-            delegateQueue:NSOperationQueue.mainQueue()
-        )
         
-        let task : NSURLSessionDataTask = session.dataTaskWithRequest(request,
-            completionHandler: { (dataOrNil, response, error) in
-                if let data = dataOrNil {
-                    if let responseDictionary = try! NSJSONSerialization.JSONObjectWithData(
-                        data, options:[]) as? NSDictionary {
-                            //NSLog("response: \(responseDictionary)")
-                            if let myResponse = responseDictionary["results"] as? [NSDictionary] {
-                                //NSLog("response\n\n \(myResponse)")
-                                self.movieDataResults = myResponse
-                                self.loadingView!.stopAnimating()
-                                self.summaryTableView.reloadData()
-                            }
-                    }
-                    
-                }
-        });
-        task.resume()
+        if (self.isConnectedToNetwork()){
+            self.networkErrorView.hidden = true
+            let url = NSURL(string:"\(API_URL)?api_key=\(CLIENT_ID)")
+            let request = NSURLRequest(URL: url!)
+            let session = NSURLSession(
+                configuration: NSURLSessionConfiguration.defaultSessionConfiguration(),
+                delegate:nil,
+                delegateQueue:NSOperationQueue.mainQueue()
+            )
+            
+            MBProgressHUD.showHUDAddedTo(self.view, animated: true)
+            
+            
+            let task : NSURLSessionDataTask = session.dataTaskWithRequest(request,
+                                                                          completionHandler: { (dataOrNil, response, error) in
+                                                                            if let data = dataOrNil {
+                                                                                if let responseDictionary = try! NSJSONSerialization.JSONObjectWithData(
+                                                                                    data, options:[]) as? NSDictionary {
+                                                                                    //NSLog("response: \(responseDictionary)")
+                                                                                    
+                                                                                    if let myResponse = responseDictionary["results"] as? [NSDictionary] {
+                                                                                        //NSLog("response\n\n \(myResponse)")
+                                                                                        MBProgressHUD.hideHUDForView(self.view, animated: true)
+                                                                                        self.movieDataResults = myResponse
+                                                                                        self.summaryTableView.reloadData()
+                                                                                        
+                                                                                    }
+                                                                                }
+                                                                                
+                                                                            }
+            });
+            task.resume()
+
+        } else {
+            self.networkErrorView.hidden = false
+        }
+
     }
     
     func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
@@ -135,8 +137,9 @@ class SummaryViewController: UIViewController, UITableViewDelegate, UITableViewD
         return self.movieDataResults.count
     }
     
-    func tableView(tableView: UITableView, didDeselectRowAtIndexPath indexPath: NSIndexPath) {
+    func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
         self.summaryTableView.deselectRowAtIndexPath(indexPath, animated: true)
+        self.summaryTableView.reloadRowsAtIndexPaths([indexPath], withRowAnimation: .Automatic)
     }
     
     // Makes a network request to get updated data
@@ -144,18 +147,22 @@ class SummaryViewController: UIViewController, UITableViewDelegate, UITableViewD
     // Hides the RefreshControl
     func refreshControlAction(refreshControl: UIRefreshControl) {
         
-        NSLog("setMovieDataResponse method called")
-        let url = NSURL(string:"\(API_URL)?api_key=\(CLIENT_ID)")
-        let request = NSURLRequest(URL: url!)
-        let session = NSURLSession(
-            configuration: NSURLSessionConfiguration.defaultSessionConfiguration(),
-            delegate:nil,
-            delegateQueue:NSOperationQueue.mainQueue()
-        )
+        if (self.isConnectedToNetwork()){
+            self.networkErrorView.hidden = true
+
+            //NSLog("Refresh method called")
+            let url = NSURL(string:"\(API_URL)?api_key=\(CLIENT_ID)")
+            let request = NSURLRequest(URL: url!)
+            let session = NSURLSession(
+                configuration: NSURLSessionConfiguration.defaultSessionConfiguration(),
+                delegate:nil,
+                delegateQueue:NSOperationQueue.mainQueue()
+            )
         
-        let task : NSURLSessionDataTask = session.dataTaskWithRequest(request,
-            completionHandler: { (dataOrNil, response, error) in
+            let task : NSURLSessionDataTask = session.dataTaskWithRequest(request,
+                                                                          completionHandler: { (dataOrNil, response, error) in
                 if let data = dataOrNil {
+                    self.networkErrorView.hidden = true
                     if let responseDictionary = try! NSJSONSerialization.JSONObjectWithData(
                         data, options:[]) as? NSDictionary {
                             //NSLog("response: \(responseDictionary)")
@@ -168,8 +175,27 @@ class SummaryViewController: UIViewController, UITableViewDelegate, UITableViewD
                     }
                     
                 }
-        });
-        task.resume()
+            });
+            task.resume()
+        } else {
+            self.networkErrorView.hidden = false
+        }
+    }
+    
+    func isConnectedToNetwork() -> Bool {
+        var zeroAddress = sockaddr_in()
+        zeroAddress.sin_len = UInt8(sizeofValue(zeroAddress))
+        zeroAddress.sin_family = sa_family_t(AF_INET)
+        let defaultRouteReachability = withUnsafePointer(&zeroAddress) {
+            SCNetworkReachabilityCreateWithAddress(nil, UnsafePointer($0))
+        }
+        var flags = SCNetworkReachabilityFlags()
+        if !SCNetworkReachabilityGetFlags(defaultRouteReachability!, &flags) {
+            return false
+        }
+        let isReachable = (flags.rawValue & UInt32(kSCNetworkFlagsReachable)) != 0
+        let needsConnection = (flags.rawValue & UInt32(kSCNetworkFlagsConnectionRequired)) != 0
+        return (isReachable && !needsConnection)
     }
 
 }
